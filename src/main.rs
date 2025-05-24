@@ -1,21 +1,16 @@
 mod lexer;
+mod parser;
 
-use crate::lexer::Lexer;
+use parser::parser::Parser;
+use std::fs;
 
-fn main() {
-    let source = "if 1 >= 2 do
-    a = 2
-end else do
-    a = 3
-end
-";
-    let mut lexer = Lexer::new(source.chars().collect());
-    loop {
-        let c = lexer.consume();
-        c.print();
+fn main() -> std::io::Result<()> {
+    let source = fs::read_to_string("examples/test.smv")?;
 
-        if c.token_type == lexer::TokenType::EOF {
-            break;
-        }
-    }
+    let mut parser = Parser::new(&source);
+    let program = parser.parse();
+
+    // dbg!(program);
+
+    Ok(())
 }

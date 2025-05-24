@@ -1,28 +1,29 @@
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Symbol {
-    Plus,
-    Minus,
-    Equals,
-    DoubleEquals,
-    NotEquals,
-    Star,
-    Slash,
-    GreaterThan,
-    GreaterEquals,
-    LessThan,
-    LessEquals,
-    Newline,
+    Plus,          // +
+    Minus,         // -
+    Equals,        // =
+    DoubleEquals,  // ==
+    NotEquals,     // !=
+    Star,          // *
+    Slash,         // /
+    GreaterThan,   // >
+    GreaterEquals, // >=
+    LessThan,      // <
+    LessEquals,    // <=
+    LParen,        // (
+    RParen,        // )
+    Dot,           // .
+    Comma,         // ,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Keyword {
     If,
-    Do,
-    End,
     Else,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     Identifier(String),
     Integer(i64),
@@ -32,13 +33,14 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Position {
-    index: u64,
-    line: u64,
-    column: u64,
+    pub index: u64,
+    pub line: u64,
+    pub column: u64,
 }
 
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub position: Position,
@@ -50,20 +52,23 @@ pub struct Lexer {
 }
 
 impl Symbol {
-    pub fn as_string(&self) -> &str {
+    pub fn as_string(&self) -> String {
         match self {
-            Symbol::Plus => "+",
-            Symbol::Minus => "-",
-            Symbol::Equals => "=",
-            Symbol::DoubleEquals => "==",
-            Symbol::NotEquals => "!=",
-            Symbol::Star => "*",
-            Symbol::Slash => "/",
-            Symbol::GreaterThan => ">",
-            Symbol::GreaterEquals => ">=",
-            Symbol::LessThan => "<",
-            Symbol::LessEquals => "<=",
-            Symbol::Newline => "\\n",
+            Symbol::Plus => "+".to_string(),
+            Symbol::Minus => "-".to_string(),
+            Symbol::Equals => "=".to_string(),
+            Symbol::DoubleEquals => "==".to_string(),
+            Symbol::NotEquals => "!=".to_string(),
+            Symbol::Star => "*".to_string(),
+            Symbol::Slash => "/".to_string(),
+            Symbol::GreaterThan => ">".to_string(),
+            Symbol::GreaterEquals => ">=".to_string(),
+            Symbol::LessThan => "<".to_string(),
+            Symbol::LessEquals => "<=".to_string(),
+            Symbol::LParen => "(".to_string(),
+            Symbol::RParen => ")".to_string(),
+            Symbol::Dot => ".".to_string(),
+            Symbol::Comma => ",".to_string(),
         }
     }
 }
@@ -71,24 +76,22 @@ impl Symbol {
 impl Keyword {
     pub fn as_string(&self) -> String {
         match self {
-            Keyword::Do => "do",
-            Keyword::If => "if",
-            Keyword::End => "end",
-            Keyword::Else => "else",
+            Keyword::If => "if".to_string(),
+            Keyword::Else => "else".to_string(),
         }
         .to_owned()
     }
 }
 
-impl Token {
-    pub fn print(&self) {
-        match &self.token_type {
-            TokenType::Identifier(value) => print!("Identifier -> {value}\n"),
-            TokenType::Integer(value) => print!("Integer    -> {value}\n"),
-            TokenType::Float(value) => print!("Float      -> {value}\n"),
-            TokenType::Symbol(value) => print!("Symbol     -> {}\n", value.as_string()),
-            TokenType::Keyword(value) => print!("Keyword    -> {}\n", value.as_string()),
-            TokenType::EOF => print!("EOF        -> \\_(:D)_/\n"),
+impl TokenType {
+    pub fn as_string(&self) -> String {
+        match self {
+            TokenType::Identifier(value) => value.to_string(),
+            TokenType::Integer(value) => value.to_string(),
+            TokenType::Float(value) => value.to_string(),
+            TokenType::Symbol(value) => value.as_string(),
+            TokenType::Keyword(value) => value.as_string(),
+            TokenType::EOF => "EOF".to_string(),
         }
     }
 }
@@ -175,12 +178,11 @@ impl Lexer {
         }
 
         while let Some(c) = self.current() {
-            if c == '\n' {
+            if c == '\0' {
                 let token = Token {
-                    token_type: TokenType::Symbol(Symbol::Newline),
+                    token_type: TokenType::EOF,
                     position: self.position.clone(),
                 };
-                self.advance();
                 return token;
             }
             if c.is_whitespace() {
@@ -208,6 +210,8 @@ impl Lexer {
             '/' => Some(Symbol::Slash),
             '>' => Some(Symbol::GreaterThan),
             '<' => Some(Symbol::LessThan),
+            '.' => Some(Symbol::Dot),
+            ',' => Some(Symbol::Comma),
             _ => None,
         };
 
@@ -220,8 +224,8 @@ impl Lexer {
         };
 
         if let Some(symbol) = two_char_symbol {
-            self.advance(); // first char
-            self.advance(); // second char
+            self.advance();
+            self.advance();
             return Token {
                 token_type: TokenType::Symbol(symbol),
                 position: self.position.clone(),
@@ -238,9 +242,15 @@ impl Lexer {
         }
 
         if c.is_digit(10) {
-            let new_index = self.return_end(|c| c.is_digit(10) || c == '.');
+            let mut new_index = self.return_end(|c| c.is_digit(10) || c == '.');
             let num_chars = &self.input[self.position.index as usize..new_index as usize];
-            let num_str: String = num_chars.iter().collect();
+            let mut num_str: String = num_chars.iter().collect();
+
+            if num_str.ends_with('.') {
+                num_str.pop();
+                new_index = new_index - 1;
+            }
+
             let token = if num_str.contains('.') {
                 let num: f64 = num_str.parse().expect("Failed to parse float.");
                 Token {
@@ -266,8 +276,6 @@ impl Lexer {
 
             let token_type = match ident.as_str() {
                 "if" => TokenType::Keyword(Keyword::If),
-                "do" => TokenType::Keyword(Keyword::Do),
-                "end" => TokenType::Keyword(Keyword::End),
                 "else" => TokenType::Keyword(Keyword::Else),
                 _ => TokenType::Identifier(ident),
             };
