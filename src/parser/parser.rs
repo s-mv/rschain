@@ -5,7 +5,6 @@ pub struct Parser {
     lexer: Lexer,
     current: Token,
     next: Token,
-    nested_call: bool,
 }
 
 impl Parser {
@@ -17,7 +16,6 @@ impl Parser {
             lexer,
             current,
             next,
-            nested_call: false,
         }
     }
 
@@ -64,11 +62,6 @@ impl Parser {
         program
     }
 
-    // fn parse_statement(&mut self) -> Option<Expression> {
-    //     let expr = self.parse_expression()?;
-    //     Some(expr)
-    // }
-
     fn parse_expression(&mut self) -> Option<Expression> {
         self.parse_if()
             .or_else(|| self.parse_call())
@@ -81,7 +74,6 @@ impl Parser {
         self.expect(TokenType::Keyword(Keyword::If)).ok()?;
         self.advance();
 
-        self.nested_call = false;
         let condition = self.parse_expression()?;
 
         self.expect(TokenType::Symbol(Symbol::Comma)).ok()?;
@@ -115,7 +107,6 @@ impl Parser {
         self.expect_next(TokenType::Symbol(Symbol::Equals)).ok()?;
         self.advance();
         self.advance();
-        self.nested_call = true; // parens are compulsary inside assignment
 
         if let Some(value) = self.parse_expression() {
             return Some(Expression::Assignment(Assignment {
@@ -150,66 +141,27 @@ impl Parser {
             return None;
         };
 
-        if self.next.token_type == TokenType::EOF {
-            return None;
-        }
+        let callee = callee.to_string();
 
-        // dbg!(&self.next);
-
-        if let TokenType::Symbol(symbol_type) = &self.next.token_type {
-            match symbol_type {
-                Symbol::Equals
-                | Symbol::DoubleEquals
-                | Symbol::NotEquals
-                | Symbol::Star
-                | Symbol::Slash
-                | Symbol::GreaterThan
-                | Symbol::GreaterEquals
-                | Symbol::LessThan
-                | Symbol::LessEquals
-                | Symbol::Dot
-                | Symbol::Comma => return None,
-                _ => {}
-            }
-        }
-
-        if let TokenType::Keyword(_) = self.next.token_type {
-            return None;
-        }
-
-        let callee = callee.clone();
+        self.expect_next(TokenType::Symbol(Symbol::LParen)).ok()?;
+        self.advance();
         self.advance();
 
         let mut arguments = Vec::new();
-        let mut nested = self.nested_call;
 
-        if nested {
-            self.expect(TokenType::Symbol(Symbol::LParen)).ok()?;
-            self.advance();
-        } else if self.expect(TokenType::Symbol(Symbol::LParen)) == Ok(()) {
-            self.advance();
-            nested = true;
-        }
-
-        loop {
-            self.nested_call = true;
+        while self.current.token_type != TokenType::Symbol(Symbol::RParen) {
             let argument = self.parse_expression()?;
             arguments.push(argument);
 
-            if nested && self.current.token_type == TokenType::Symbol(Symbol::RParen) {
+            if self.current.token_type == TokenType::Symbol(Symbol::Comma) {
                 self.advance();
-                break;
-            }
-
-            if self.current.token_type != TokenType::Symbol(Symbol::Comma) {
-                if nested {
-                    return None;
-                }
-                break;
             } else {
-                self.advance();
+                break;
             }
         }
+
+        self.expect(TokenType::Symbol(Symbol::RParen)).ok()?;
+        self.advance();
 
         Some(Expression::Call(Call { callee, arguments }))
     }

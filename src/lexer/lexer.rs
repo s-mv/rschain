@@ -192,12 +192,14 @@ impl Lexer {
             }
         }
 
+        let position = self.position.clone();
+
         let c = match self.current() {
             Some(c) => c,
             None => {
                 return Token {
                     token_type: TokenType::EOF,
-                    position: self.position.clone(),
+                    position,
                 }
             }
         };
@@ -212,6 +214,8 @@ impl Lexer {
             '<' => Some(Symbol::LessThan),
             '.' => Some(Symbol::Dot),
             ',' => Some(Symbol::Comma),
+            '(' => Some(Symbol::LParen),
+            ')' => Some(Symbol::RParen),
             _ => None,
         };
 
@@ -228,14 +232,14 @@ impl Lexer {
             self.advance();
             return Token {
                 token_type: TokenType::Symbol(symbol),
-                position: self.position.clone(),
+                position,
             };
         }
 
         if let Some(symbol) = symbol {
             let token = Token {
                 token_type: TokenType::Symbol(symbol),
-                position: self.position.clone(),
+                position,
             };
             self.advance();
             return token;
@@ -255,13 +259,13 @@ impl Lexer {
                 let num: f64 = num_str.parse().expect("Failed to parse float.");
                 Token {
                     token_type: TokenType::Float(num),
-                    position: self.position.clone(),
+                    position,
                 }
             } else {
                 let num: i64 = num_str.parse().expect("Failed to parse integer.");
                 Token {
                     token_type: TokenType::Integer(num),
-                    position: self.position.clone(),
+                    position,
                 }
             };
             self.update(new_index);
@@ -282,13 +286,13 @@ impl Lexer {
 
             return Token {
                 token_type,
-                position: self.position.clone(),
+                position,
             };
         }
 
         Token {
             token_type: TokenType::EOF,
-            position: self.position.clone(),
+            position,
         }
     }
 }
